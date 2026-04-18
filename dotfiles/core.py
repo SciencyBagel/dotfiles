@@ -15,14 +15,13 @@ makes the planning logic easy to unit-test without any mocking.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Iterator
 
 from .config import Config
 from .errors import (
-    AlreadyTrackedError,
     IgnoredPathError,
     MissingRepoFileError,
     NestedVCSError,

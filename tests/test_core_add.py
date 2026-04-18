@@ -9,7 +9,6 @@ import pytest
 from dotfiles.config import Config
 from dotfiles.core import execute_add, plan_add
 from dotfiles.errors import (
-    AlreadyTrackedError,
     IgnoredPathError,
     NestedVCSError,
     SourceNotFoundError,
