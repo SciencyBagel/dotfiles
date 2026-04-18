@@ -19,7 +19,7 @@ import tomllib
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from .errors import ConfigError
 
@@ -81,23 +81,6 @@ class Config(BaseModel):
         if v and (v.startswith("/") or ".." in Path(v).parts):
             raise ValueError("repo_subdir must be a plain directory name, not a path")
         return v
-
-    @model_validator(mode="after")
-    def _validate_no_self_containment(self) -> "Config":
-        """Reject configs where ``repo_path`` sits inside ``home``.
-
-        A repo under ``home`` would be tracked by itself the moment the user
-        tries to add anything in that region, producing symlink cycles.
-        """
-        # FIXME: it's better to check when the user tries to add the
-        # ``repo_path`` under home instead.
-        try:
-            self.repo_path.relative_to(self.home)
-        except ValueError:
-            return self
-        raise ValueError(
-            f"repo_path {self.repo_path} must not be inside home {self.home}"
-        )
 
     @property
     def tracked_root(self) -> Path:

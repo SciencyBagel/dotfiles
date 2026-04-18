@@ -48,12 +48,14 @@ def test_load_config_unknown_fields_rejected(tmp_path: Path) -> None:
         load_config(p)
 
 
-def test_config_rejects_repo_inside_home(tmp_path: Path) -> None:
+def test_config_allows_repo_inside_home(tmp_path: Path) -> None:
+    # A repo under $HOME is a common convention (~/.dotfiles-repo).
+    # The Config itself accepts it; self-containment is caught at add-time.
     home = tmp_path / "h"
     home.mkdir()
-    repo = home / "repo"
-    with pytest.raises(ValueError):
-        Config(repo_path=repo, home=home)
+    repo = home / ".dotfiles-repo"
+    cfg = Config(repo_path=repo, home=home)
+    assert cfg.repo_path == repo
 
 
 def test_config_rejects_bad_subdir(tmp_path: Path) -> None:

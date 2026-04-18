@@ -26,6 +26,7 @@ from .errors import (
     MissingRepoFileError,
     NestedVCSError,
     NotASymlinkError,
+    SourceContainsRepoError,
     SourceNotFoundError,
     SymlinkOutsideRepoError,
     TargetExistsError,
@@ -178,6 +179,8 @@ def plan_add(
 
     Raises:
         SourceNotFoundError: If ``src`` does not exist.
+        SourceContainsRepoError: If ``src`` is the tracked repo itself or
+            contains it (moving ``src`` would move the repo into itself).
         IgnoredPathError: If ``src`` is under ``cfg.ignored_paths``.
         NestedVCSError: If ``src`` lies inside a nested ``.git`` and
             ``allow_nested_vcs`` is False.
@@ -203,6 +206,12 @@ def plan_add(
 
     if not src.exists() and not src.is_symlink():
         raise SourceNotFoundError(f"{src} does not exist.")
+
+    if is_under(cfg.repo_path, src):
+        raise SourceContainsRepoError(
+            f"{src} equals or contains the tracked repo at {cfg.repo_path}; "
+            "moving it would relocate the repo into itself."
+        )
 
     if is_ignored(src, cfg):
         raise IgnoredPathError(f"{src} is under a configured ignored path.")

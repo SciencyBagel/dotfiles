@@ -33,6 +33,15 @@ class TargetExistsError(DotfilesError):
     """Raised when the corresponding repo-side path already exists and ``--force`` was not given."""
 
 
+class SourceContainsRepoError(DotfilesError):
+    """Raised when the source to add would contain or equal the tracked repo.
+
+    Moving such a path would try to relocate the repo into itself and is
+    never what the user wants. Common trigger: ``dotfiles add ~`` when
+    ``repo_path`` lives at ``~/.dotfiles-repo``.
+    """
+
+
 class NestedVCSError(DotfilesError):
     """Raised when the source sits inside a nested git repository.
 

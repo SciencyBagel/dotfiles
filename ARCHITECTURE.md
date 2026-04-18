@@ -77,9 +77,11 @@ or blindly descend into unintended trees.
    any walk happens — re-adding a tracked directory never re-walks it.
 6. **Depth cap** (`Config.max_depth`, default 64) on directory walks so
    pathological trees fail fast with a clear error.
-7. **Config self-containment check.** `Config` refuses a `repo_path`
-   that is nested inside `home`, preventing the repo from ever
-   symlinking into itself.
+7. **Source-contains-repo check.** `plan_add` refuses when the source
+   path equals or contains `cfg.repo_path`. Keeping the repo under
+   `$HOME` (e.g. `~/.dotfiles-repo`) is a common convention and is
+   allowed; the check only fires on the actual operation that would
+   move the repo into itself.
 
 ## Configuration discovery
 
