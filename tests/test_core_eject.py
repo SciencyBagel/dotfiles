@@ -34,7 +34,9 @@ def test_eject_roundtrip(cfg: Config) -> None:
 
     assert src.is_file() and not src.is_symlink()
     assert src.read_text() == "hello"
-    assert not dest.exists()  # per decision, repo was left to user — but eject moved file back
+    assert (
+        not dest.exists()
+    )  # per decision, repo was left to user — but eject moved file back
 
 
 def test_eject_dry_run_noop(cfg: Config) -> None:

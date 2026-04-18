@@ -39,7 +39,9 @@ def test_git_add_stages_file(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(["git", "-C", str(repo), "init", "--quiet"], check=True)
-    subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@t.t"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email", "t@t.t"], check=True
+    )
     subprocess.run(["git", "-C", str(repo), "config", "user.name", "t"], check=True)
     f = repo / "a.txt"
     f.write_text("hi")

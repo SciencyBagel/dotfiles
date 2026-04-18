@@ -35,6 +35,7 @@ def test_make_symlink_relative(tmp_path: Path) -> None:
     link = tmp_path / "link"
     make_symlink(link, target, relative=True)
     import os
+
     assert os.readlink(link) == "sub/target.txt"
 
 

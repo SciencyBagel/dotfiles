@@ -16,11 +16,7 @@ runner = CliRunner()
 
 def _write_config(tmp_path: Path, home: Path, repo: Path) -> Path:
     cfg = tmp_path / "config.toml"
-    cfg.write_text(
-        f'repo_path = "{repo}"\n'
-        f'home = "{home}"\n'
-        'repo_subdir = "home"\n'
-    )
+    cfg.write_text(f'repo_path = "{repo}"\nhome = "{home}"\nrepo_subdir = "home"\n')
     return cfg
 
 
@@ -80,7 +76,9 @@ def test_add_with_stage_hits_git_index(tmp_path: Path) -> None:
     repo.mkdir()
     (repo / "home").mkdir()
     subprocess.run(["git", "-C", str(repo), "init", "--quiet"], check=True)
-    subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@t.t"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email", "t@t.t"], check=True
+    )
     subprocess.run(["git", "-C", str(repo), "config", "user.name", "t"], check=True)
 
     cfg = _write_config(tmp_path, home, repo)

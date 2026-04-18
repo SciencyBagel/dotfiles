@@ -142,8 +142,7 @@ def load_config(path: Path | None = None) -> Config:
     resolved = resolve_config_path(path)
     if not resolved.exists():
         raise ConfigError(
-            f"Config file not found at {resolved}. "
-            "Run `dotfiles init` to create one."
+            f"Config file not found at {resolved}. Run `dotfiles init` to create one."
         )
     try:
         with resolved.open("rb") as fh:

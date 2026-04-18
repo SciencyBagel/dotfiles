@@ -26,7 +26,10 @@ def test_home_to_repo_mapping(cfg: Config) -> None:
 
 def test_home_to_repo_nested(cfg: Config) -> None:
     src = cfg.home / ".config" / "nvim" / "init.lua"
-    assert home_to_repo(src, cfg) == cfg.repo_path / "home" / ".config" / "nvim" / "init.lua"
+    assert (
+        home_to_repo(src, cfg)
+        == cfg.repo_path / "home" / ".config" / "nvim" / "init.lua"
+    )
 
 
 def test_repo_to_home_is_inverse(cfg: Config) -> None:

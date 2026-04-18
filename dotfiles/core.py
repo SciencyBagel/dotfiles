@@ -31,7 +31,13 @@ from .errors import (
     SymlinkOutsideRepoError,
     TargetExistsError,
 )
-from .fs import backup_path, ensure_parent, make_symlink, move_path, restore_from_symlink
+from .fs import (
+    backup_path,
+    ensure_parent,
+    make_symlink,
+    move_path,
+    restore_from_symlink,
+)
 from .paths import ensure_under_home, home_to_repo, is_under, repo_to_home
 from .vcs import find_enclosing_vcs, git_add
 
@@ -252,9 +258,7 @@ def plan_eject(src: Path, cfg: Config) -> EjectPlan:
     src = ensure_under_home(src, cfg)
     if not src.is_symlink():
         if src.exists():
-            raise NotASymlinkError(
-                f"{src} is not a symlink; nothing to eject."
-            )
+            raise NotASymlinkError(f"{src} is not a symlink; nothing to eject.")
         raise SourceNotFoundError(f"{src} does not exist.")
 
     target_str = os.readlink(src)

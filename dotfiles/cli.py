@@ -143,11 +143,16 @@ def add(
     ] = False,
     force: Annotated[
         bool,
-        typer.Option("--force", help="Backup and overwrite an existing repo-side destination."),
+        typer.Option(
+            "--force", help="Backup and overwrite an existing repo-side destination."
+        ),
     ] = False,
     follow_symlinks: Annotated[
         bool,
-        typer.Option("--follow-symlinks", help="Allow the source to be a symlink outside the repo."),
+        typer.Option(
+            "--follow-symlinks",
+            help="Allow the source to be a symlink outside the repo.",
+        ),
     ] = False,
     allow_nested_vcs: Annotated[
         bool,
@@ -179,7 +184,9 @@ def add(
         typer.echo(f"{plan.source} is already tracked; nothing to do.")
         return
 
-    typer.echo(f"{'would move' if dry_run else 'moving'}: {plan.source} -> {plan.destination}")
+    typer.echo(
+        f"{'would move' if dry_run else 'moving'}: {plan.source} -> {plan.destination}"
+    )
     if plan.stage:
         typer.echo("will `git add` after moving." if dry_run else "staging in repo...")
 
@@ -273,7 +280,9 @@ def restore_all(
     ] = False,
     force: Annotated[
         bool,
-        typer.Option("--force", help="Back up any home-side file that blocks a restore."),
+        typer.Option(
+            "--force", help="Back up any home-side file that blocks a restore."
+        ),
     ] = False,
     dry_run: DryRunOption = False,
     config: ConfigOption = None,
@@ -399,6 +408,9 @@ def _confirm(yes: bool, prompt: str) -> bool:
     if yes:
         return True
     if not sys.stdin.isatty():
-        typer.echo("error: refusing to proceed without --yes on a non-interactive stdin.", err=True)
+        typer.echo(
+            "error: refusing to proceed without --yes on a non-interactive stdin.",
+            err=True,
+        )
         return False
     return typer.confirm(prompt, default=False)
