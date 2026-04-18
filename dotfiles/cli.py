@@ -112,7 +112,6 @@ def init(
     if not gitignore.exists():
         gitignore.write_text("*.bak-*\n")
 
-
     config_path = resolve_config_path(config)
     if config_path.exists() and not force:
         typer.echo(

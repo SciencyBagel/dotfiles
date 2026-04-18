@@ -30,31 +30,34 @@ def _expand(p: Path) -> Path:
 
 
 class Config(BaseModel):
-    """Runtime configuration for the dotfiles tool.
-
-    Attributes:
-        repo_path: Git repository where the real files are stored.
-        home: Directory the tool treats as ``$HOME``. Defaults to :func:`Path.home`.
-        repo_subdir: Subdirectory inside ``repo_path`` where the home-relative
-            tree is mirrored. Defaults to ``"home"``.
-        ignored_paths: Paths inside ``home`` that must never be touched
-            (existing submodule-style repos like oh-my-zsh or LazyVim).
-        auto_stage: Default value of the ``--stage`` flag on ``add``.
-        detect_nested_vcs: When ``True``, refuse to add files that sit inside
-            a nested git repository.
-        relative_symlinks: When ``True``, create relative symlinks; otherwise
-            absolute (survives moves of the home directory but not of the repo).
-        max_depth: Safety cap on directory walks.
-    """
+    """Runtime configuration for the dotfiles tool."""
 
     repo_path: Annotated[Path, Field(description="Git repo storing the real files.")]
+    """Git repository where the real files are stored."""
+
     home: Annotated[Path, Field(default_factory=Path.home)]
+    """Directory the tool treats as ``$HOME``. Defaults to :func:`Path.home`"""
+
     repo_subdir: Annotated[str, Field(default="home")]
+    """Subdirectory inside ``repo_path`` where the home-relative tree is mirrored. Defaults to ``"home"``."""
+
     ignored_paths: Annotated[list[Path], Field(default_factory=list)]
+    """Paths inside ``home`` that must never be touched
+            (existing submodule-style repos like oh-my-zsh or LazyVim)."""
+
     auto_stage: Annotated[bool, Field(default=False)]
+    """Default value of the ``--stage`` flag on ``add``."""
+
     detect_nested_vcs: Annotated[bool, Field(default=True)]
+    """When ``True``, refuse to add files that sit inside
+            a nested git repository."""
+
     relative_symlinks: Annotated[bool, Field(default=False)]
+    """When ``True``, create relative symlinks; otherwise
+            absolute (survives moves of the home directory but not of the repo)."""
+
     max_depth: Annotated[int, Field(default=64, gt=0)]
+    """Safety cap on directory walks."""
 
     model_config = {"extra": "forbid"}
 

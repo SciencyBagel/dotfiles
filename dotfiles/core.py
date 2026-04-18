@@ -39,7 +39,7 @@ from .fs import (
     restore_from_symlink,
 )
 from .paths import ensure_under_home, home_to_repo, is_under, repo_to_home
-from .vcs import find_enclosing_vcs, git_add
+from .vcs import find_enclosing_vcs, git_add, RepoPath
 
 
 # ---------------------------------------------------------------------------
@@ -396,12 +396,12 @@ def _entry_status(home_path: Path, repo_path: Path, _: Config) -> TrackedStatus:
     return TrackedStatus.MISSING
 
 
-def _find_repo_root(p: Path) -> Path | None:
+def _find_repo_root(p: Path) -> RepoPath | None:
     """Walk upward from ``p`` looking for a directory that contains ``.git``."""
     current = p.parent
     while True:
         if (current / ".git").exists():
-            return current
+            return RepoPath(current)
         if current.parent == current:
             return None
         current = current.parent
