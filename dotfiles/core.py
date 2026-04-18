@@ -373,7 +373,7 @@ def list_tracked(cfg: Config) -> Iterator[TrackedEntry]:
             )
 
 
-def _entry_status(home_path: Path, repo_path: Path, cfg: Config) -> TrackedStatus:
+def _entry_status(home_path: Path, repo_path: Path, _: Config) -> TrackedStatus:
     """Classify a home-side path against its expected repo-side target."""
     if home_path.is_symlink():
         target = Path(os.readlink(home_path))

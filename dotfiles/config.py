@@ -89,6 +89,8 @@ class Config(BaseModel):
         A repo under ``home`` would be tracked by itself the moment the user
         tries to add anything in that region, producing symlink cycles.
         """
+        # FIXME: it's better to check when the user tries to add the
+        # ``repo_path`` under home instead.
         try:
             self.repo_path.relative_to(self.home)
         except ValueError:
@@ -121,9 +123,11 @@ def resolve_config_path(explicit: Path | None = None) -> Path:
     """
     if explicit is not None:
         return _expand(explicit)
+
     env = os.environ.get("DOTFILES_CONFIG")
     if env:
         return _expand(Path(env))
+
     return _default_config_path()
 
 
@@ -144,11 +148,13 @@ def load_config(path: Path | None = None) -> Config:
         raise ConfigError(
             f"Config file not found at {resolved}. Run `dotfiles init` to create one."
         )
+
     try:
         with resolved.open("rb") as fh:
             data = tomllib.load(fh)
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"Failed to parse TOML at {resolved}: {exc}") from exc
+
     try:
         return Config.model_validate(data)
     except Exception as exc:  # pydantic ValidationError is a subclass of ValueError

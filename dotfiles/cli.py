@@ -104,11 +104,14 @@ def init(
     repo = repo.expanduser().absolute()
     repo.mkdir(parents=True, exist_ok=True)
     (repo / repo_subdir).mkdir(parents=True, exist_ok=True)
+
     if not (repo / ".git").exists():
         subprocess.run(["git", "-C", str(repo), "init", "--quiet"], check=True)
+
     gitignore = repo / ".gitignore"
     if not gitignore.exists():
         gitignore.write_text("*.bak-*\n")
+
 
     config_path = resolve_config_path(config)
     if config_path.exists() and not force:
