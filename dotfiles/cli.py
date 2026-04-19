@@ -126,8 +126,14 @@ def init(
         f'repo_subdir = "{repo_subdir}"\n'
         f"{home_line}"
         "ignored_paths = []\n"
+        "# Declarative hole-punch through ignored_paths and the nested-VCS\n"
+        '# check, e.g. ["~/.oh-my-zsh/custom"] to track your own plugins.\n'
+        "allowed_paths = []\n"
         "auto_stage = false\n"
         "detect_nested_vcs = true\n"
+        "# When true, files already ignored by a nested repo's .gitignore\n"
+        "# may be tracked without adding them to allowed_paths.\n"
+        "trust_nested_gitignore = true\n"
         "relative_symlinks = false\n"
     )
     config_path.parent.mkdir(parents=True, exist_ok=True)

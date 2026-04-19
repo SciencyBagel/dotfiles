@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from dotfiles.vcs import find_enclosing_vcs, git_add
+from dotfiles.vcs import find_enclosing_vcs, git_add, is_path_gitignored_by
 
 
 def test_find_enclosing_vcs_none(tmp_path: Path) -> None:
@@ -53,3 +53,23 @@ def test_git_add_stages_file(tmp_path: Path) -> None:
         text=True,
     )
     assert out.stdout.strip() == "a.txt"
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_is_path_gitignored_by(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "--quiet"], check=True)
+    (repo / ".gitignore").write_text("custom/\n")
+    ignored = repo / "custom" / "my.zsh"
+    ignored.parent.mkdir()
+    ignored.write_text("x")
+    tracked = repo / "other.zsh"
+    tracked.write_text("x")
+
+    assert is_path_gitignored_by(repo, ignored) is True
+    assert is_path_gitignored_by(repo, tracked) is False
+
+
+def test_is_path_gitignored_by_missing_repo(tmp_path: Path) -> None:
+    assert is_path_gitignored_by(tmp_path / "nope", tmp_path / "x") is False

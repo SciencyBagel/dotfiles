@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -149,3 +151,82 @@ def test_add_refuses_ignored_path(cfg: Config) -> None:
     src.write_text("x")
     with pytest.raises(IgnoredPathError):
         plan_add(src, new_cfg)
+
+
+def test_allowed_paths_bypasses_ignored(cfg: Config) -> None:
+    omz = cfg.home / ".oh-my-zsh"
+    custom = omz / "custom"
+    custom.mkdir(parents=True)
+    src = custom / "my.zsh"
+    src.write_text("alias g=git")
+    new_cfg = cfg.model_copy(
+        update={"ignored_paths": [omz], "allowed_paths": [custom]}
+    )
+    plan = plan_add(src, new_cfg)
+    assert plan.destination.parent.name == "custom"
+
+
+def test_allowed_paths_bypasses_nested_vcs(cfg: Config) -> None:
+    omz = cfg.home / ".oh-my-zsh"
+    custom = omz / "custom"
+    custom.mkdir(parents=True)
+    (omz / ".git").mkdir()
+    src = custom / "my.zsh"
+    src.write_text("alias g=git")
+    new_cfg = cfg.model_copy(update={"allowed_paths": [custom]})
+    plan = plan_add(src, new_cfg)
+    assert not plan.already_tracked
+
+
+def test_allowed_paths_does_not_bypass_source_contains_repo(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    repo = home / ".dotfiles-repo"
+    (repo / "home").mkdir(parents=True)
+    cfg = Config(
+        repo_path=repo,
+        home=home,
+        repo_subdir="home",
+        allowed_paths=[home],
+    )
+    with pytest.raises(SourceContainsRepoError):
+        plan_add(home, cfg)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_trust_nested_gitignore_allows_ignored_file(cfg: Config) -> None:
+    omz = cfg.home / ".oh-my-zsh"
+    custom = omz / "custom"
+    custom.mkdir(parents=True)
+    subprocess.run(["git", "-C", str(omz), "init", "--quiet"], check=True)
+    (omz / ".gitignore").write_text("custom/\n")
+    src = custom / "my.zsh"
+    src.write_text("alias g=git")
+    plan = plan_add(src, cfg)
+    assert not plan.already_tracked
+    assert any("nested repo" in w for w in plan.warnings)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_trust_nested_gitignore_disabled_still_refuses(cfg: Config) -> None:
+    omz = cfg.home / ".oh-my-zsh"
+    custom = omz / "custom"
+    custom.mkdir(parents=True)
+    subprocess.run(["git", "-C", str(omz), "init", "--quiet"], check=True)
+    (omz / ".gitignore").write_text("custom/\n")
+    src = custom / "my.zsh"
+    src.write_text("alias g=git")
+    new_cfg = cfg.model_copy(update={"trust_nested_gitignore": False})
+    with pytest.raises(NestedVCSError):
+        plan_add(src, new_cfg)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_trust_nested_gitignore_refuses_tracked_file(cfg: Config) -> None:
+    omz = cfg.home / ".oh-my-zsh"
+    omz.mkdir()
+    subprocess.run(["git", "-C", str(omz), "init", "--quiet"], check=True)
+    src = omz / "oh-my-zsh.sh"
+    src.write_text("# the real one")
+    with pytest.raises(NestedVCSError):
+        plan_add(src, cfg)

@@ -45,12 +45,24 @@ class Config(BaseModel):
     """Paths inside ``home`` that must never be touched
             (existing submodule-style repos like oh-my-zsh or LazyVim)."""
 
+    allowed_paths: Annotated[list[Path], Field(default_factory=list)]
+    """Declarative hole-punch through ``ignored_paths`` and the nested-VCS
+            check. Any source under an ``allowed_paths`` entry is exempt from
+            both for that ``add`` call. Intended for user-extension points
+            inside third-party repos (e.g. ``~/.oh-my-zsh/custom``)."""
+
     auto_stage: Annotated[bool, Field(default=False)]
     """Default value of the ``--stage`` flag on ``add``."""
 
     detect_nested_vcs: Annotated[bool, Field(default=True)]
     """When ``True``, refuse to add files that sit inside
             a nested git repository."""
+
+    trust_nested_gitignore: Annotated[bool, Field(default=True)]
+    """When ``True``, if a nested repo is detected and its own ``.gitignore``
+            already ignores the source, allow the ``add`` anyway. Zero-config
+            handling of user overrides in repos that expect them (e.g.
+            oh-my-zsh's ``custom/``)."""
 
     relative_symlinks: Annotated[bool, Field(default=False)]
     """When ``True``, create relative symlinks; otherwise
@@ -69,10 +81,10 @@ class Config(BaseModel):
             return _expand(Path(v))
         return v
 
-    @field_validator("ignored_paths", mode="before")
+    @field_validator("ignored_paths", "allowed_paths", mode="before")
     @classmethod
-    def _expand_ignored(cls, v: object) -> object:
-        """Expand each entry in ``ignored_paths``."""
+    def _expand_path_list(cls, v: object) -> object:
+        """Expand each entry in ``ignored_paths`` / ``allowed_paths``."""
         if isinstance(v, list):
             return [_expand(Path(p)) if isinstance(p, (str, Path)) else p for p in v]
         return v

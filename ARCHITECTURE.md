@@ -49,8 +49,16 @@ Benefits:
    being deleted.
 5. **Nested-VCS detection is on by default.** `find_enclosing_vcs` walks
    upward from the source looking for `.git`. If one is found, `add`
-   refuses with an actionable message pointing at the `ignored_paths`
-   config entry.
+   refuses unless one of three overrides applies:
+   * `cfg.allowed_paths` covers the source (declarative, preferred);
+   * `cfg.trust_nested_gitignore` is true *and* the nested repo's own
+     `.gitignore` already excludes the source (zero-config for the
+     oh-my-zsh `custom/` case);
+   * `--allow-nested-vcs` on the command line (one-off override).
+
+   The overrides are only consulted after the safety invariants
+   above (path-under-home, source-contains-repo) — those are never
+   bypassed.
 6. **All operations assert paths stay under `cfg.home`.** See
    `paths.ensure_under_home`.
 7. **Atomic per-entry execution** in bulk ops — a mid-batch failure does
@@ -94,6 +102,19 @@ Precedence (high to low):
 
 Implemented by `config.resolve_config_path` /
 `config.load_config`. The CLI loads once and threads `Config` through.
+
+## Why not git submodules?
+
+Submodules solve a related but different problem: they let a parent
+repo *embed* another repo as a pinned child, with its own history
+included by reference. That is not what this tool is doing. We are
+*coexisting* with third-party repos that the user has installed
+independently (oh-my-zsh, LazyVim, rustup, …): we never want to take
+over their history, pin their commits, or require their maintainers
+to cooperate. The `allowed_paths` / nested-`.gitignore` mechanism
+above handles this coexistence case with zero coupling to the
+neighbour's workflow. Submodules would add heavy init/update
+ceremony to solve a problem we do not have.
 
 ## Testing philosophy
 

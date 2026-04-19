@@ -56,3 +56,30 @@ def git_add(repo: RepoPath, file: Path) -> None:
         ["git", "-C", str(repo), "add", "--", str(file)],
         check=True,
     )
+
+
+def is_path_gitignored_by(repo: Path, path: Path) -> bool:
+    """Return True iff ``path`` is ignored by ``repo``'s ``.gitignore`` rules.
+
+    Shells out to ``git -C <repo> check-ignore --quiet -- <path>``. Exit
+    code 0 means ignored, 1 means not ignored, any other non-zero exit
+    (e.g. git missing, repo unreadable) is conservatively treated as
+    *not* ignored — the caller will fall through to the usual
+    nested-VCS refusal.
+
+    Args:
+        repo: Path to the nested git working tree whose ignore rules are
+            consulted.
+        path: The path to check; may be absolute.
+
+    Returns:
+        True iff git reports the path as ignored.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "check-ignore", "--quiet", "--", str(path)],
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return False
+    return result.returncode == 0

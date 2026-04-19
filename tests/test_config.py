@@ -48,6 +48,20 @@ def test_load_config_unknown_fields_rejected(tmp_path: Path) -> None:
         load_config(p)
 
 
+def test_allowed_paths_expands_and_defaults_empty(tmp_path: Path) -> None:
+    cfg = Config(repo_path=tmp_path / "r", home=tmp_path / "h")
+    assert cfg.allowed_paths == []
+    assert cfg.trust_nested_gitignore is True
+
+    cfg2 = Config(
+        repo_path=tmp_path / "r",
+        home=tmp_path / "h",
+        allowed_paths=["~/.oh-my-zsh/custom"],
+    )
+    assert cfg2.allowed_paths[0].is_absolute()
+    assert "~" not in str(cfg2.allowed_paths[0])
+
+
 def test_config_allows_repo_inside_home(tmp_path: Path) -> None:
     # A repo under $HOME is a common convention (~/.dotfiles-repo).
     # The Config itself accepts it; self-containment is caught at add-time.

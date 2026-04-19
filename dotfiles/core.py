@@ -39,7 +39,7 @@ from .fs import (
     restore_from_symlink,
 )
 from .paths import ensure_under_home, home_to_repo, is_under, repo_to_home
-from .vcs import find_enclosing_vcs, git_add, RepoPath
+from .vcs import find_enclosing_vcs, git_add, is_path_gitignored_by, RepoPath
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +61,16 @@ def is_symlink_into_repo(p: Path, cfg: Config) -> bool:
 def is_ignored(p: Path, cfg: Config) -> bool:
     """Return True iff ``p`` is under any configured ``ignored_paths`` entry."""
     return any(is_under(p, ignored) for ignored in cfg.ignored_paths)
+
+
+def is_allowed(p: Path, cfg: Config) -> bool:
+    """Return True iff ``p`` is under any configured ``allowed_paths`` entry.
+
+    ``allowed_paths`` is the declarative hole-punch through
+    ``ignored_paths`` and the nested-VCS check: when this returns True,
+    ``plan_add`` skips both refusals for the call.
+    """
+    return any(is_under(p, allowed) for allowed in cfg.allowed_paths)
 
 
 # ---------------------------------------------------------------------------
@@ -181,9 +191,11 @@ def plan_add(
         SourceNotFoundError: If ``src`` does not exist.
         SourceContainsRepoError: If ``src`` is the tracked repo itself or
             contains it (moving ``src`` would move the repo into itself).
-        IgnoredPathError: If ``src`` is under ``cfg.ignored_paths``.
-        NestedVCSError: If ``src`` lies inside a nested ``.git`` and
-            ``allow_nested_vcs`` is False.
+        IgnoredPathError: If ``src`` is under ``cfg.ignored_paths`` and not
+            exempted by ``cfg.allowed_paths``.
+        NestedVCSError: If ``src`` lies inside a nested ``.git`` and none of
+            ``allow_nested_vcs``, ``cfg.allowed_paths``, or
+            ``cfg.trust_nested_gitignore`` apply.
         TargetExistsError: If the destination already exists and ``force`` is
             False.
         ValueError: If ``src`` is a symlink outside the repo and
@@ -213,13 +225,23 @@ def plan_add(
             "moving it would relocate the repo into itself."
         )
 
-    if is_ignored(src, cfg):
+    # allowed_paths is a declarative hole-punch: it bypasses ignored_paths
+    # AND the nested-VCS check (but never the safety invariants above).
+    allowed = is_allowed(src, cfg)
+
+    if not allowed and is_ignored(src, cfg):
         raise IgnoredPathError(f"{src} is under a configured ignored path.")
 
-    if cfg.detect_nested_vcs and not allow_nested_vcs:
+    if not allowed and cfg.detect_nested_vcs and not allow_nested_vcs:
         nested = find_enclosing_vcs(src, stop_at=cfg.home)
         if nested is not None and nested != cfg.home:
-            raise NestedVCSError(src, nested)
+            if cfg.trust_nested_gitignore and is_path_gitignored_by(nested, src):
+                warnings.append(
+                    f"{src} sits inside nested repo {nested}, but that repo's "
+                    f".gitignore already excludes it; tracking it here is safe."
+                )
+            else:
+                raise NestedVCSError(src, nested)
 
     if src.is_symlink() and not follow_symlinks:
         raise ValueError(

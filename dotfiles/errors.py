@@ -53,7 +53,9 @@ class NestedVCSError(DotfilesError):
     def __init__(self, path: Path, vcs_root: Path) -> None:
         super().__init__(
             f"{path} is inside a nested git repo at {vcs_root}. "
-            f"Add '{vcs_root}' to ignored_paths or pass --allow-nested-vcs to override."
+            f"Add a parent directory to allowed_paths in your config to track "
+            f"files under it (recommended), add '{vcs_root}' to ignored_paths to "
+            f"exclude it entirely, or pass --allow-nested-vcs for a one-off override."
         )
         self.path = path
         self.vcs_root = vcs_root
