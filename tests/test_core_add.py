@@ -11,6 +11,7 @@ from dotfiles.core import execute_add, plan_add
 from dotfiles.errors import (
     IgnoredPathError,
     NestedVCSError,
+    SourceContainsRepoError,
     SourceNotFoundError,
     TargetExistsError,
 )
@@ -104,6 +105,40 @@ def test_add_allow_nested_vcs_bypass(cfg: Config) -> None:
     src.write_text("x")
     plan = plan_add(src, cfg, allow_nested_vcs=True)
     assert not plan.already_tracked
+
+
+def test_add_refuses_source_containing_repo(tmp_path: Path) -> None:
+    # repo lives under home (a common convention); adding an ancestor of
+    # the repo would relocate the repo into itself.
+    home = tmp_path / "home"
+    home.mkdir()
+    repo = home / ".dotfiles-repo"
+    (repo / "home").mkdir(parents=True)
+    cfg = Config(repo_path=repo, home=home, repo_subdir="home")
+
+    subdir = home / "sub"
+    subdir.mkdir()
+    repo_inside = subdir / "repo"
+    (repo_inside / "home").mkdir(parents=True)
+    cfg_inside = Config(repo_path=repo_inside, home=home, repo_subdir="home")
+
+    with pytest.raises(SourceContainsRepoError):
+        plan_add(home, cfg)  # src == home, repo is inside home
+    with pytest.raises(SourceContainsRepoError):
+        plan_add(subdir, cfg_inside)  # src is an ancestor of the repo
+
+
+def test_add_repo_under_home_allows_sibling_paths(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    repo = home / ".dotfiles-repo"
+    (repo / "home").mkdir(parents=True)
+    cfg = Config(repo_path=repo, home=home, repo_subdir="home")
+
+    src = home / ".zshrc"
+    src.write_text("zsh!")
+    plan = plan_add(src, cfg)
+    assert plan.destination == repo / "home" / ".zshrc"
 
 
 def test_add_refuses_ignored_path(cfg: Config) -> None:

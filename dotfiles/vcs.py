@@ -9,9 +9,13 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import NewType
 
 
-def find_enclosing_vcs(path: Path, *, stop_at: Path) -> Path | None:
+RepoPath = NewType("RepoPath", Path)
+
+
+def find_enclosing_vcs(path: Path, *, stop_at: Path) -> RepoPath | None:
     """Return the nearest ancestor of ``path`` that contains a ``.git`` entry.
 
     The walk stops as soon as it reaches ``stop_at`` (exclusive) or the
@@ -32,13 +36,13 @@ def find_enclosing_vcs(path: Path, *, stop_at: Path) -> Path | None:
         if current == stop_at:
             return None
         if (current / ".git").exists():
-            return current
+            return RepoPath(current)
         if current.parent == current:
             return None
         current = current.parent
 
 
-def git_add(repo: Path, file: Path) -> None:
+def git_add(repo: RepoPath, file: Path) -> None:
     """Run ``git add -- <file>`` inside ``repo``.
 
     Args:

@@ -19,7 +19,7 @@ import tomllib
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from .errors import ConfigError
 
@@ -30,31 +30,34 @@ def _expand(p: Path) -> Path:
 
 
 class Config(BaseModel):
-    """Runtime configuration for the dotfiles tool.
-
-    Attributes:
-        repo_path: Git repository where the real files are stored.
-        home: Directory the tool treats as ``$HOME``. Defaults to :func:`Path.home`.
-        repo_subdir: Subdirectory inside ``repo_path`` where the home-relative
-            tree is mirrored. Defaults to ``"home"``.
-        ignored_paths: Paths inside ``home`` that must never be touched
-            (existing submodule-style repos like oh-my-zsh or LazyVim).
-        auto_stage: Default value of the ``--stage`` flag on ``add``.
-        detect_nested_vcs: When ``True``, refuse to add files that sit inside
-            a nested git repository.
-        relative_symlinks: When ``True``, create relative symlinks; otherwise
-            absolute (survives moves of the home directory but not of the repo).
-        max_depth: Safety cap on directory walks.
-    """
+    """Runtime configuration for the dotfiles tool."""
 
     repo_path: Annotated[Path, Field(description="Git repo storing the real files.")]
+    """Git repository where the real files are stored."""
+
     home: Annotated[Path, Field(default_factory=Path.home)]
+    """Directory the tool treats as ``$HOME``. Defaults to :func:`Path.home`"""
+
     repo_subdir: Annotated[str, Field(default="home")]
+    """Subdirectory inside ``repo_path`` where the home-relative tree is mirrored. Defaults to ``"home"``."""
+
     ignored_paths: Annotated[list[Path], Field(default_factory=list)]
+    """Paths inside ``home`` that must never be touched
+            (existing submodule-style repos like oh-my-zsh or LazyVim)."""
+
     auto_stage: Annotated[bool, Field(default=False)]
+    """Default value of the ``--stage`` flag on ``add``."""
+
     detect_nested_vcs: Annotated[bool, Field(default=True)]
+    """When ``True``, refuse to add files that sit inside
+            a nested git repository."""
+
     relative_symlinks: Annotated[bool, Field(default=False)]
+    """When ``True``, create relative symlinks; otherwise
+            absolute (survives moves of the home directory but not of the repo)."""
+
     max_depth: Annotated[int, Field(default=64, gt=0)]
+    """Safety cap on directory walks."""
 
     model_config = {"extra": "forbid"}
 
@@ -81,23 +84,6 @@ class Config(BaseModel):
         if v and (v.startswith("/") or ".." in Path(v).parts):
             raise ValueError("repo_subdir must be a plain directory name, not a path")
         return v
-
-    @model_validator(mode="after")
-    def _validate_no_self_containment(self) -> "Config":
-        """Reject configs where ``repo_path`` sits inside ``home``.
-
-        A repo under ``home`` would be tracked by itself the moment the user
-        tries to add anything in that region, producing symlink cycles.
-        """
-        # FIXME: it's better to check when the user tries to add the
-        # ``repo_path`` under home instead.
-        try:
-            self.repo_path.relative_to(self.home)
-        except ValueError:
-            return self
-        raise ValueError(
-            f"repo_path {self.repo_path} must not be inside home {self.home}"
-        )
 
     @property
     def tracked_root(self) -> Path:
