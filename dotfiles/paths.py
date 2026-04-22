@@ -7,7 +7,6 @@ before calling).
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from .config import Config
@@ -44,7 +43,7 @@ def ensure_under_home(p: Path, cfg: Config) -> Path:
     Raises:
         PathOutsideHomeError: If ``p`` is not under ``cfg.home``.
     """
-    absolute = Path(os.path.expanduser(str(p))).absolute()
+    absolute = p.expanduser().absolute()
     if not is_under(absolute, cfg.home):
         raise PathOutsideHomeError(
             f"{absolute} is not under the configured home {cfg.home}"
