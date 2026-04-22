@@ -78,7 +78,7 @@ def is_ignored_by_vcs(repo: RepoPath, path: Path) -> bool:
         True iff git reports ``path`` as ignored by ``repo``.
     """
     result = subprocess.run(
-        ["git", "-C", str(repo), "check-ignore", "-q", "--", str(path)],
+        ["git", "-C", str(repo), "check-ignore", "--no-index", "-q", "--", str(path)],
         capture_output=True,
     )
     return result.returncode == 0
