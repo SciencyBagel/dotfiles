@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -105,6 +107,35 @@ def test_add_allow_nested_vcs_bypass(cfg: Config) -> None:
     src.write_text("x")
     plan = plan_add(src, cfg, allow_nested_vcs=True)
     assert not plan.already_tracked
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_add_allows_gitignored_in_nested_vcs(cfg: Config) -> None:
+    omz = cfg.home / ".oh-my-zsh"
+    omz.mkdir()
+    subprocess.run(["git", "-C", str(omz), "init", "--quiet"], check=True)
+    (omz / ".gitignore").write_text("custom.zsh\n")
+    src = omz / "custom.zsh"
+    src.write_text("# user-local override")
+
+    plan = plan_add(src, cfg)
+
+    assert not plan.already_tracked
+    assert plan.source == src
+    assert any("gitignored" in w for w in plan.warnings)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_add_still_refuses_tracked_file_in_nested_vcs(cfg: Config) -> None:
+    omz = cfg.home / ".oh-my-zsh"
+    omz.mkdir()
+    subprocess.run(["git", "-C", str(omz), "init", "--quiet"], check=True)
+    (omz / ".gitignore").write_text("custom.zsh\n")
+    src = omz / "zshrc"
+    src.write_text("# tracked by omz")
+
+    with pytest.raises(NestedVCSError):
+        plan_add(src, cfg)
 
 
 def test_add_refuses_source_containing_repo(tmp_path: Path) -> None:

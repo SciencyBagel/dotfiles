@@ -39,7 +39,7 @@ from .fs import (
     restore_from_symlink,
 )
 from .paths import ensure_under_home, home_to_repo, is_under, repo_to_home
-from .vcs import find_enclosing_vcs, git_add, RepoPath
+from .vcs import find_enclosing_vcs, git_add, is_ignored_by_vcs, RepoPath
 
 
 # ---------------------------------------------------------------------------
@@ -182,8 +182,11 @@ def plan_add(
         SourceContainsRepoError: If ``src`` is the tracked repo itself or
             contains it (moving ``src`` would move the repo into itself).
         IgnoredPathError: If ``src`` is under ``cfg.ignored_paths``.
-        NestedVCSError: If ``src`` lies inside a nested ``.git`` and
-            ``allow_nested_vcs`` is False.
+        NestedVCSError: If ``src`` lies inside a nested ``.git`` that is
+            actively tracking it, and ``allow_nested_vcs`` is False. Paths
+            matched by the nested repo's ``.gitignore`` are allowed through
+            (with a warning) since they cannot cause version-control
+            conflicts.
         TargetExistsError: If the destination already exists and ``force`` is
             False.
         ValueError: If ``src`` is a symlink outside the repo and
@@ -219,7 +222,13 @@ def plan_add(
     if cfg.detect_nested_vcs and not allow_nested_vcs:
         nested = find_enclosing_vcs(src, stop_at=cfg.home)
         if nested is not None and nested != cfg.home:
-            raise NestedVCSError(src, nested)
+            if is_ignored_by_vcs(nested, src):
+                warnings.append(
+                    f"{src} is inside a nested git repo at {nested}, "
+                    "but is gitignored there — proceeding."
+                )
+            else:
+                raise NestedVCSError(src, nested)
 
     if src.is_symlink() and not follow_symlinks:
         raise ValueError(

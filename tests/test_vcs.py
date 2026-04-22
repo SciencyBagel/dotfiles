@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from dotfiles.vcs import find_enclosing_vcs, git_add
+from dotfiles.vcs import find_enclosing_vcs, git_add, is_ignored_by_vcs
 
 
 def test_find_enclosing_vcs_none(tmp_path: Path) -> None:
@@ -32,6 +32,34 @@ def test_find_enclosing_vcs_nested(tmp_path: Path) -> None:
     inner.parent.mkdir()
     inner.write_text("x")
     assert find_enclosing_vcs(inner, stop_at=tmp_path / "home") == nested
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_is_ignored_by_vcs_reports_gitignore_match(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "--quiet"], check=True)
+    (repo / ".gitignore").write_text("ignored.txt\n")
+    (repo / "ignored.txt").write_text("x")
+    (repo / "tracked.txt").write_text("y")
+
+    from dotfiles.vcs import RepoPath
+
+    assert is_ignored_by_vcs(RepoPath(repo), repo / "ignored.txt") is True
+    assert is_ignored_by_vcs(RepoPath(repo), repo / "tracked.txt") is False
+
+
+def test_is_ignored_by_vcs_returns_false_for_bogus_repo(tmp_path: Path) -> None:
+    # A plain directory with no real git metadata: check-ignore should exit
+    # non-zero and the helper must treat that as "not ignored" to preserve
+    # the caller's safety check.
+    fake = tmp_path / "fake"
+    fake.mkdir()
+    (fake / ".git").mkdir()
+
+    from dotfiles.vcs import RepoPath
+
+    assert is_ignored_by_vcs(RepoPath(fake), fake / "anything") is False
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
