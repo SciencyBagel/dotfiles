@@ -26,6 +26,7 @@ from .errors import (
     MissingRepoFileError,
     NestedVCSError,
     NotASymlinkError,
+    NotStagedError,
     SourceContainsRepoError,
     SourceNotFoundError,
     SymlinkOutsideRepoError,
@@ -33,9 +34,11 @@ from .errors import (
 )
 from .fs import (
     backup_path,
+    copy_path,
     ensure_parent,
     make_symlink,
     move_path,
+    remove_path,
     restore_from_symlink,
 )
 from .paths import ensure_under_home, home_to_repo, is_under, repo_to_home
@@ -73,15 +76,17 @@ class AddPlan:
     """The set of mutations ``dotfiles add`` would perform.
 
     Attributes:
-        source: Home-side path that will be moved.
-        destination: Repo-side path the file will live at.
-        stage: Whether to ``git add`` ``destination`` after the move.
+        source: Home-side path that will be copied into the repo.
+        destination: Repo-side path the file will be copied to.
+        stage: Whether to ``git add`` ``destination`` after the copy.
         force: Whether an existing ``destination`` will be backed up instead of
             aborting.
-        relative_symlinks: Whether the resulting symlink text should be
-            relative to the home-side path.
+        relative_symlinks: Carried forward for use by ``move`` later.
         already_tracked: When True, the source is already a symlink into the
             repo; ``execute_add`` is a no-op.
+        already_staged: When True, the source has already been copied to the
+            repo but the symlink has not been created yet; ``execute_add`` is a
+            no-op and the user should run ``dotfiles move`` instead.
         warnings: Non-fatal notes to surface to the user.
     """
 
@@ -91,6 +96,28 @@ class AddPlan:
     force: bool = False
     relative_symlinks: bool = False
     already_tracked: bool = False
+    already_staged: bool = False
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class MovePlan:
+    """The mutations ``dotfiles move`` would perform.
+
+    Attributes:
+        source: Home-side path to replace with a symlink.
+        destination: Repo-side path where the file was staged.
+        relative_symlinks: Whether the symlink text should be relative to the
+            home-side path's parent directory.
+        already_linked: When True, ``source`` is already a symlink into the
+            repo; ``execute_move`` is a no-op.
+        warnings: Non-fatal notes to surface to the user.
+    """
+
+    source: Path
+    destination: Path
+    relative_symlinks: bool = False
+    already_linked: bool = False
     warnings: tuple[str, ...] = ()
 
 
@@ -121,6 +148,14 @@ class EjectResult:
     """Outcome of :func:`execute_eject`."""
 
     plan: EjectPlan
+    executed: bool
+
+
+@dataclass
+class MoveResult:
+    """Outcome of :func:`execute_move`."""
+
+    plan: MovePlan
     executed: bool
 
 
@@ -238,6 +273,22 @@ def plan_add(
 
     destination = home_to_repo(src, cfg)
     if destination.exists() or destination.is_symlink():
+        if not src.is_symlink() and src.exists() and not force:
+            # Home still has the original and the repo already has a copy —
+            # the file was staged but not yet linked.  Signal this so the CLI
+            # can hint the user to run ``dotfiles move``.
+            return AddPlan(
+                source=src,
+                destination=destination,
+                stage=stage,
+                force=force,
+                relative_symlinks=cfg.relative_symlinks,
+                already_staged=True,
+                warnings=(
+                    f"{src} is already staged at {destination}. "
+                    "Run `dotfiles move` to create the symlink.",
+                ),
+            )
         if not force:
             raise TargetExistsError(
                 f"{destination} already exists in the repo. Pass --force to overwrite."
@@ -302,6 +353,9 @@ def plan_eject(src: Path, cfg: Config) -> EjectPlan:
 def execute_add(plan: AddPlan, *, dry_run: bool = False) -> AddResult:
     """Apply an :class:`AddPlan` to disk.
 
+    Copies ``plan.source`` into the repo without touching the original.
+    Run :func:`execute_move` afterwards to replace the original with a symlink.
+
     Args:
         plan: Plan produced by :func:`plan_add`.
         dry_run: When True, perform no mutations; the returned result has
@@ -310,7 +364,7 @@ def execute_add(plan: AddPlan, *, dry_run: bool = False) -> AddResult:
     Returns:
         An :class:`AddResult` summarising the outcome.
     """
-    if plan.already_tracked or dry_run:
+    if plan.already_tracked or plan.already_staged or dry_run:
         return AddResult(plan=plan, executed=False)
 
     backed_up: Path | None = None
@@ -318,12 +372,8 @@ def execute_add(plan: AddPlan, *, dry_run: bool = False) -> AddResult:
         backed_up = backup_path(plan.destination)
 
     ensure_parent(plan.destination)
-    move_path(plan.source, plan.destination)
-    make_symlink(plan.source, plan.destination, relative=plan.relative_symlinks)
+    copy_path(plan.source, plan.destination)
     if plan.stage:
-        # Figure out the repo root from the destination path.
-        # plan.destination lives under cfg.tracked_root which is cfg.repo_path / cfg.repo_subdir.
-        # Walk up to the first ancestor that contains .git.
         repo_root = _find_repo_root(plan.destination)
         if repo_root is not None:
             git_add(repo_root, plan.destination)
@@ -345,6 +395,70 @@ def execute_eject(plan: EjectPlan, *, dry_run: bool = False) -> EjectResult:
         return EjectResult(plan=plan, executed=False)
     restore_from_symlink(plan.source)
     return EjectResult(plan=plan, executed=True)
+
+
+def plan_move(src: Path, cfg: Config) -> MovePlan:
+    """Plan the linking of a staged file (replace home-side original with a symlink).
+
+    This is the second step of a two-step workflow:
+    1. ``dotfiles add`` copies the file into the repo.
+    2. ``dotfiles move`` removes the home-side original and creates a symlink.
+
+    Args:
+        src: Home-side path to link. Must have been staged via ``dotfiles add``.
+        cfg: Active configuration.
+
+    Returns:
+        A frozen :class:`MovePlan`.
+
+    Raises:
+        NotStagedError: If the repo-side copy does not exist (file not yet staged).
+    """
+    src = ensure_under_home(src, cfg)
+
+    if is_symlink_into_repo(src, cfg):
+        dest = home_to_repo(src, cfg)
+        return MovePlan(
+            source=src,
+            destination=dest,
+            relative_symlinks=cfg.relative_symlinks,
+            already_linked=True,
+            warnings=(f"{src} is already linked to the repo.",),
+        )
+
+    destination = home_to_repo(src, cfg)
+    if not destination.exists():
+        raise NotStagedError(
+            f"{src} has not been staged yet. Run `dotfiles add {src}` first."
+        )
+
+    return MovePlan(
+        source=src,
+        destination=destination,
+        relative_symlinks=cfg.relative_symlinks,
+    )
+
+
+def execute_move(plan: MovePlan, *, dry_run: bool = False) -> MoveResult:
+    """Apply a :class:`MovePlan` to disk.
+
+    Removes the home-side original and creates a symlink pointing at the
+    repo-side copy that was placed there by :func:`execute_add`.
+
+    Args:
+        plan: Plan produced by :func:`plan_move`.
+        dry_run: When True, perform no mutations.
+
+    Returns:
+        A :class:`MoveResult` summarising the outcome.
+    """
+    if plan.already_linked or dry_run:
+        return MoveResult(plan=plan, executed=False)
+
+    if plan.source.exists() or plan.source.is_symlink():
+        remove_path(plan.source)
+    make_symlink(plan.source, plan.destination, relative=plan.relative_symlinks)
+    return MoveResult(plan=plan, executed=True)
 
 
 # ---------------------------------------------------------------------------

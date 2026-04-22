@@ -8,8 +8,10 @@ from dotfiles.config import Config
 from dotfiles.core import (
     TrackedStatus,
     execute_add,
+    execute_move,
     list_tracked,
     plan_add,
+    plan_move,
 )
 
 
@@ -18,6 +20,7 @@ def _track(cfg: Config, rel: str, content: str = "x") -> Path:
     src.parent.mkdir(parents=True, exist_ok=True)
     src.write_text(content)
     execute_add(plan_add(src, cfg))
+    execute_move(plan_move(src, cfg))
     return src
 
 

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from dotfiles.config import Config
-from dotfiles.core import execute_add, execute_eject, plan_add, plan_eject
+from dotfiles.core import execute_add, execute_eject, execute_move, plan_add, plan_eject, plan_move
 from dotfiles.errors import (
     MissingRepoFileError,
     NotASymlinkError,
@@ -21,6 +21,7 @@ def _track(cfg: Config, rel: str, content: str = "payload") -> Path:
     src.parent.mkdir(parents=True, exist_ok=True)
     src.write_text(content)
     execute_add(plan_add(src, cfg))
+    execute_move(plan_move(src, cfg))
     return src
 
 

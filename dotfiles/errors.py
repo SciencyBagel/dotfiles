@@ -81,3 +81,7 @@ class SymlinkLoopError(DotfilesError):
 
 class DepthLimitExceededError(DotfilesError):
     """Raised when a directory walk exceeds the configured maximum depth."""
+
+
+class NotStagedError(DotfilesError):
+    """Raised when ``move`` is called on a file that has not been staged via ``add`` yet."""

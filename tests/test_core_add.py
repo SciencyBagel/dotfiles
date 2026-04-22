@@ -25,21 +25,22 @@ def _write(path: Path, content: str = "x") -> Path:
     return path
 
 
-def test_add_file_moves_and_symlinks(cfg: Config) -> None:
+def test_add_file_copies_to_repo(cfg: Config) -> None:
     src = _write(cfg.home / ".zshrc", "zsh!")
     plan = plan_add(src, cfg)
     result = execute_add(plan)
     assert result.executed
-    assert src.is_symlink()
+    # Original is still a regular file (not yet replaced with symlink)
+    assert src.is_file() and not src.is_symlink()
+    # Repo copy has the same content
     assert plan.destination.read_text() == "zsh!"
-    assert src.read_text() == "zsh!"  # via the symlink
 
 
-def test_add_already_tracked_is_noop(cfg: Config) -> None:
+def test_add_already_staged_is_noop(cfg: Config) -> None:
     src = _write(cfg.home / ".zshrc")
     execute_add(plan_add(src, cfg))
     plan2 = plan_add(src, cfg)
-    assert plan2.already_tracked
+    assert plan2.already_staged
     result = execute_add(plan2)
     assert not result.executed
 
@@ -52,15 +53,18 @@ def test_add_dry_run_does_not_mutate(cfg: Config) -> None:
     assert not plan.destination.exists()
 
 
-def test_add_directory_becomes_single_symlink(cfg: Config) -> None:
+def test_add_directory_copies_to_repo(cfg: Config) -> None:
     d = cfg.home / ".config" / "nvim"
     d.mkdir(parents=True)
     (d / "init.lua").write_text("-- config")
     plan = plan_add(d, cfg)
     execute_add(plan)
-    assert d.is_symlink()
+    # Original directory is still present (not yet replaced with symlink)
+    assert d.is_dir() and not d.is_symlink()
     assert (d / "init.lua").read_text() == "-- config"
+    # Repo copy exists
     assert plan.destination.is_dir()
+    assert (plan.destination / "init.lua").read_text() == "-- config"
 
 
 def test_add_source_not_found(cfg: Config) -> None:
@@ -68,13 +72,29 @@ def test_add_source_not_found(cfg: Config) -> None:
         plan_add(cfg.home / "missing", cfg)
 
 
-def test_add_refuses_target_exists(cfg: Config) -> None:
+def test_add_already_staged_when_repo_copy_exists(cfg: Config) -> None:
+    # When home still has the original and the repo already has a copy,
+    # plan_add signals ``already_staged`` instead of raising TargetExistsError.
     src = _write(cfg.home / ".zshrc")
     dest = cfg.tracked_root / ".zshrc"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text("existing")
+    plan = plan_add(src, cfg)
+    assert plan.already_staged
+
+
+def test_add_refuses_target_exists_for_non_original(cfg: Config) -> None:
+    # If the home-side file is a symlink (pointing elsewhere) and the repo
+    # already has a file, TargetExistsError is still raised without --force.
+    dest = cfg.tracked_root / ".zshrc"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("existing")
+    outside = cfg.home / "outside"
+    outside.write_text("x")
+    link = cfg.home / ".zshrc"
+    link.symlink_to(outside)
     with pytest.raises(TargetExistsError):
-        plan_add(src, cfg)
+        plan_add(link, cfg, follow_symlinks=True)
 
 
 def test_add_force_backs_up_existing_target(cfg: Config) -> None:
