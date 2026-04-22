@@ -7,7 +7,7 @@ name = "dotfiles"
 version = "0.3.0"
 description = "Curate which dotfiles are kept under git version control via symlinks."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Jahir Fernando Montes" }]
 dependencies = [
