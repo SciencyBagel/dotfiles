@@ -37,7 +37,6 @@ from .fs import (
     copy_path,
     ensure_parent,
     make_symlink,
-    move_path,
     remove_path,
     restore_from_symlink,
 )
@@ -51,13 +50,21 @@ from .vcs import find_enclosing_vcs, git_add, is_ignored_by_vcs, RepoPath
 
 
 def is_symlink_into_repo(p: Path, cfg: Config) -> bool:
-    """Return True iff ``p`` is a symlink pointing into the tracked repo."""
+    """Return True iff ``p`` is a symlink pointing into the tracked repo.
+
+    Useful when trying to see if a file is already symlinked into the repo
+    containing the version controlled dotfiles.
+
+    """
+
     if not p.is_symlink():
         return False
-    target_str = os.readlink(p)
-    target = Path(target_str)
+
+    target = p.readlink()
+
     if not target.is_absolute():
         target = (p.parent / target).absolute()
+
     return is_under(target, cfg.tracked_root)
 
 
