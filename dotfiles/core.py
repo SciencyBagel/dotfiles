@@ -68,7 +68,7 @@ def is_symlink_into_repo(p: Path, cfg: Config) -> bool:
     return is_under(target, cfg.tracked_root)
 
 
-def is_ignored(p: Path, cfg: Config) -> bool:
+def is_ignored_by_config(p: Path, cfg: Config) -> bool:
     """Return True iff ``p`` is under any configured ``ignored_paths`` entry."""
     return any(is_under(p, ignored) for ignored in cfg.ignored_paths)
 
@@ -196,7 +196,7 @@ class TrackedEntry:
 
 
 def plan_add(
-    src: Path,
+    src_path: Path,
     cfg: Config,
     *,
     stage: bool = False,
@@ -234,65 +234,65 @@ def plan_add(
         ValueError: If ``src`` is a symlink outside the repo and
             ``follow_symlinks`` is False.
     """
-    src = ensure_under_home(src, cfg)
+    src_path = ensure_under_home(src_path, cfg)
     warnings: list[str] = []
 
-    if is_symlink_into_repo(src, cfg):
-        dest = home_to_repo(src, cfg)
+    if is_symlink_into_repo(src_path, cfg):
+        dest = home_to_repo(src_path, cfg)
         return AddPlan(
-            source=src,
+            source=src_path,
             destination=dest,
             stage=stage,
             force=force,
             relative_symlinks=cfg.relative_symlinks,
             already_tracked=True,
-            warnings=(f"{src} is already tracked.",),
+            warnings=(f"{src_path} is already tracked.",),
         )
 
-    if not src.exists() and not src.is_symlink():
-        raise SourceNotFoundError(f"{src} does not exist.")
+    if not src_path.exists() and not src_path.is_symlink():
+        raise SourceNotFoundError(f"{src_path} does not exist.")
 
-    if is_under(cfg.repo_path, src):
+    if is_under(cfg.repo_path, src_path):
         raise SourceContainsRepoError(
-            f"{src} equals or contains the tracked repo at {cfg.repo_path}; "
+            f"{src_path} equals or contains the tracked repo at {cfg.repo_path}; "
             "moving it would relocate the repo into itself."
         )
 
-    if is_ignored(src, cfg):
-        raise IgnoredPathError(f"{src} is under a configured ignored path.")
+    if is_ignored_by_config(src_path, cfg):
+        raise IgnoredPathError(f"{src_path} is under a configured ignored path.")
 
     if cfg.detect_nested_vcs and not allow_nested_vcs:
-        nested = find_enclosing_vcs(src, stop_at=cfg.home)
-        if nested is not None and nested != cfg.home:
-            if is_ignored_by_vcs(nested, src):
+        src_nested_vcs_path = find_enclosing_vcs(src_path, stop_at=cfg.home)
+        if src_nested_vcs_path is not None and src_nested_vcs_path != cfg.home:
+            if is_ignored_by_vcs(src_nested_vcs_path, src_path):
                 warnings.append(
-                    f"{src} is inside a nested git repo at {nested}, "
+                    f"{src_path} is inside a nested git repo at {src_nested_vcs_path}, "
                     "but is gitignored there — proceeding."
                 )
             else:
-                raise NestedVCSError(src, nested)
+                raise NestedVCSError(src_path, src_nested_vcs_path)
 
-    if src.is_symlink() and not follow_symlinks:
+    if src_path.is_symlink() and not follow_symlinks:
         raise ValueError(
-            f"{src} is a symlink that does not point into the tracked repo. "
+            f"{src_path} is a symlink that does not point into the tracked repo. "
             "Pass --follow-symlinks to move the symlink itself."
         )
 
-    destination = home_to_repo(src, cfg)
+    destination = home_to_repo(src_path, cfg)
     if destination.exists() or destination.is_symlink():
-        if not src.is_symlink() and src.exists() and not force:
+        if not src_path.is_symlink() and src_path.exists() and not force:
             # Home still has the original and the repo already has a copy —
             # the file was staged but not yet linked.  Signal this so the CLI
             # can hint the user to run ``dotfiles move``.
             return AddPlan(
-                source=src,
+                source=src_path,
                 destination=destination,
                 stage=stage,
                 force=force,
                 relative_symlinks=cfg.relative_symlinks,
                 already_staged=True,
                 warnings=(
-                    f"{src} is already staged at {destination}. "
+                    f"{src_path} is already staged at {destination}. "
                     "Run `dotfiles move` to create the symlink.",
                 ),
             )
@@ -305,7 +305,7 @@ def plan_add(
         )
 
     return AddPlan(
-        source=src,
+        source=src_path,
         destination=destination,
         stage=stage,
         force=force,
