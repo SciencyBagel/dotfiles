@@ -9,7 +9,7 @@ description = "Curate which dotfiles are kept under git version control via syml
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "dotfiles maintainers" }]
+authors = [{ name = "Jahir Fernando Montes" }]
 dependencies = [
     "typer>=0.12",
     "pydantic>=2.6",

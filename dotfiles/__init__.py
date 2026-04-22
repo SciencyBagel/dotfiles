@@ -25,4 +25,4 @@ See ``ARCHITECTURE.md`` at the repo root for cross-cutting design rationale
 (safety nets, loop-and-cycle guarantees, testing philosophy).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
