@@ -189,7 +189,9 @@ def add(
         return
 
     if plan.already_staged:
-        typer.echo(f"{plan.source} is already staged; run `dotfiles move {path}` to create the symlink.")
+        typer.echo(
+            f"{plan.source} is already staged; run `dotfiles move {path}` to create the symlink."
+        )
         return
 
     typer.echo(
@@ -207,7 +209,9 @@ def add(
     if result.backed_up is not None:
         typer.echo(f"backed up previous destination to {result.backed_up}")
     if result.executed:
-        typer.echo(f"staged. Run `dotfiles move {path}` to replace the original with a symlink.")
+        typer.echo(
+            f"staged. Run `dotfiles move {path}` to replace the original with a symlink."
+        )
 
 
 @app.command()

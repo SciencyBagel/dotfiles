@@ -7,7 +7,14 @@ from pathlib import Path
 import pytest
 
 from dotfiles.config import Config
-from dotfiles.core import execute_add, execute_eject, execute_move, plan_add, plan_eject, plan_move
+from dotfiles.core import (
+    execute_add,
+    execute_eject,
+    execute_move,
+    plan_add,
+    plan_eject,
+    plan_move,
+)
 from dotfiles.errors import (
     MissingRepoFileError,
     NotASymlinkError,
