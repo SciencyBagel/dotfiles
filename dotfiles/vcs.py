@@ -1,8 +1,11 @@
-"""Git integration: nested-repo detection and optional staging.
+"""Git integration: nested-repo detection, gitignore checks, and staging.
 
 ``find_enclosing_vcs`` walks upward from a path looking for a ``.git``
 entry, stopping at a configured boundary so the walk is always bounded.
-``git_add`` shells out to git for staging.
+``is_ignored_by_vcs`` consults a repo's ``.gitignore`` rules without
+mutating anything, so callers in the pure planning layer can ask whether
+a path is safe to move regardless of an enclosing repo. ``git_add``
+shells out to git for staging.
 """
 
 from __future__ import annotations
@@ -56,3 +59,26 @@ def git_add(repo: RepoPath, file: Path) -> None:
         ["git", "-C", str(repo), "add", "--", str(file)],
         check=True,
     )
+
+
+def is_ignored_by_vcs(repo: RepoPath, path: Path) -> bool:
+    """Return True iff ``path`` is matched by a gitignore rule in ``repo``.
+
+    Delegates to ``git check-ignore -q``, which exits 0 when the path is
+    ignored, 1 when it is not, and 128 on other errors (e.g. the repo is
+    unusable or git is unavailable). Any non-zero exit is treated as
+    "not ignored" so the caller's existing safety checks are preserved
+    when we cannot get a definitive answer.
+
+    Args:
+        repo: Path to the git working tree to consult.
+        path: Path inside ``repo`` to test.
+
+    Returns:
+        True iff git reports ``path`` as ignored by ``repo``.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(repo), "check-ignore", "-q", "--", str(path)],
+        capture_output=True,
+    )
+    return result.returncode == 0
