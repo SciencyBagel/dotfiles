@@ -41,6 +41,11 @@ def test_add_list_eject_roundtrip(tmp_path: Path) -> None:
 
     res = runner.invoke(app, ["add", str(target), "--config", str(cfg)])
     assert res.exit_code == 0, res.stdout
+    # After add: original still present (staged, not yet linked)
+    assert target.is_file() and not target.is_symlink()
+
+    res = runner.invoke(app, ["move", str(target), "--config", str(cfg)])
+    assert res.exit_code == 0, res.stdout
     assert target.is_symlink()
 
     res = runner.invoke(app, ["list", "--config", str(cfg)])

@@ -22,9 +22,11 @@ from .core import (
     TrackedStatus,
     execute_add,
     execute_eject,
+    execute_move,
     list_tracked,
     plan_add,
     plan_eject,
+    plan_move,
 )
 from .errors import DotfilesError
 
@@ -163,7 +165,7 @@ def add(
     dry_run: DryRunOption = False,
     config: ConfigOption = None,
 ) -> None:
-    """Move a file into the tracked repo and leave a symlink behind."""
+    """Copy a file into the tracked repo (stage it). Run ``dotfiles move`` to create the symlink."""
     cfg = _load(config)
     stage = stage or cfg.auto_stage
     try:
@@ -186,11 +188,15 @@ def add(
         typer.echo(f"{plan.source} is already tracked; nothing to do.")
         return
 
+    if plan.already_staged:
+        typer.echo(f"{plan.source} is already staged; run `dotfiles move {path}` to create the symlink.")
+        return
+
     typer.echo(
-        f"{'would move' if dry_run else 'moving'}: {plan.source} -> {plan.destination}"
+        f"{'would copy' if dry_run else 'copying'}: {plan.source} -> {plan.destination}"
     )
     if plan.stage:
-        typer.echo("will `git add` after moving." if dry_run else "staging in repo...")
+        typer.echo("will `git add` after copying." if dry_run else "staging in repo...")
 
     try:
         result = execute_add(plan, dry_run=dry_run)
@@ -200,6 +206,45 @@ def add(
 
     if result.backed_up is not None:
         typer.echo(f"backed up previous destination to {result.backed_up}")
+    if result.executed:
+        typer.echo(f"staged. Run `dotfiles move {path}` to replace the original with a symlink.")
+
+
+@app.command()
+def move(
+    path: Annotated[Path, typer.Argument(help="Home-side file or directory to link.")],
+    dry_run: DryRunOption = False,
+    config: ConfigOption = None,
+) -> None:
+    """Replace a staged file's home-side original with a symlink into the repo.
+
+    This is the second step after ``dotfiles add``: the file is already copied
+    into the repo; this command removes the original and creates the symlink.
+    """
+    cfg = _load(config)
+    try:
+        plan = plan_move(path, cfg)
+    except DotfilesError as exc:
+        _bail(exc)
+        return
+
+    for w in plan.warnings:
+        typer.echo(f"note: {w}")
+
+    if plan.already_linked:
+        typer.echo(f"{plan.source} is already linked to the repo; nothing to do.")
+        return
+
+    typer.echo(
+        f"{'would link' if dry_run else 'linking'}: {plan.source} -> {plan.destination}"
+    )
+
+    try:
+        result = execute_move(plan, dry_run=dry_run)
+    except DotfilesError as exc:
+        _bail(exc)
+        return
+
     if result.executed:
         typer.echo("done.")
 

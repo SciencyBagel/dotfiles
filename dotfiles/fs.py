@@ -106,6 +106,36 @@ def backup_path(p: Path) -> Path:
     return candidate
 
 
+def copy_path(src: Path, dst: Path) -> None:
+    """Copy a file or directory from ``src`` to ``dst``.
+
+    Parent directories of ``dst`` are created as needed. Uses
+    ``shutil.copy2`` for files (preserving metadata) and
+    ``shutil.copytree`` for directories.
+
+    Args:
+        src: Path to copy.
+        dst: Destination path. Must not already exist.
+    """
+    ensure_parent(dst)
+    if src.is_dir():
+        shutil.copytree(str(src), str(dst))
+    else:
+        shutil.copy2(str(src), str(dst))
+
+
+def remove_path(p: Path) -> None:
+    """Remove a file or directory at ``p``.
+
+    Args:
+        p: Path to remove. Directories are removed recursively.
+    """
+    if p.is_dir() and not p.is_symlink():
+        shutil.rmtree(str(p))
+    else:
+        p.unlink()
+
+
 def restore_from_symlink(link: Path) -> Path:
     """Replace a symlink with the real file it points to.
 
